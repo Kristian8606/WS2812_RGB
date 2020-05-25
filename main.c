@@ -219,7 +219,7 @@ void reset_configuration() {
 
 
 
-homekit_characteristic_t lightbulb_on = HOMEKIT_CHARACTERISTIC_(ON, true, .callback=HOMEKIT_CHARACTERISTIC_CALLBACK(switch_on_callback));
+homekit_characteristic_t lightbulb_on = HOMEKIT_CHARACTERISTIC_(ON, false, .callback=HOMEKIT_CHARACTERISTIC_CALLBACK(switch_on_callback));
 
 
 void switch_on_callback(homekit_characteristic_t *_ch, homekit_value_t on, void *context) {
