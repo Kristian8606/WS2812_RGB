@@ -30,7 +30,7 @@
 #include "ws2812_i2s/ws2812_i2s.h"
 #include "ota-api.h"
 #include <math.h>
-
+#include "fmod.h"
 #define max(a,b) \
 ({ __typeof__ (a) _a = (a); \
 __typeof__ (b) _b = (b); \
@@ -80,119 +80,41 @@ ws2812_pixel_t target_color = { { 0, 0, 0, 0 } };
 
 
 //http://blog.saikoled.com/post/44677718712/how-to-convert-from-hsi-to-rgb-white
-void hsi2rgbw(float h, float s, float i, ws2812_pixel_t* rgbw) {
 
-    float cos_h, cos_1047_h;
-    int r, g, b, w;
-    
-  h = 3.14159*h/(float)180; // Convert to radians.
- 
-    
-    while (h < 0) { h += 360.0F; };     // cycle h around to 0-360 degrees
-    while (h >= 360) { h -= 360.0F; };
-    
-  //  s /= 100.0F;                        // from percentage to ratio
-   // i /= 100.0F;                        // from percentage to ratio
-   
-  
-   
-    s = s > 0 ? (s < 1 ? s : 1) : 0;    // clamp s and i to interval [0,1]
-    i = i > 0 ? (i < 1 ? i : 1) : 0;    // clamp s and i to interval [0,1]
-    //i = i * sqrt(i);                    // shape intensity to have finer granularity near 0
-     if(h < 2.09439) {
-    cos_h = cos(h);
-    cos_1047_h = cos(1.047196667-h);
-    r = s*255*i/3*(1+cos_h/cos_1047_h);
-    g = s*255*i/3*(1+(1-cos_h/cos_1047_h));
-    b = 0;
-    w = 255*(1-s)*i;
-  } else if(h < 4.188787) {
-    h = h - 2.09439;
-    cos_h = cos(h);
-    cos_1047_h = cos(1.047196667-h);
-    g = s*255*i/3*(1+cos_h/cos_1047_h);
-    b = s*255*i/3*(1+(1-cos_h/cos_1047_h));
-    r = 0;
-    w = 255*(1-s)*i;
-  } else {
-    h = h - 4.188787;
-    cos_h = cos(h);
-    cos_1047_h = cos(1.047196667-h);
-    b = s*255*i/3*(1+cos_h/cos_1047_h);
-    r = s*255*i/3*(1+(1-cos_h/cos_1047_h));
-    g = 0;
-    w = 255*(1-s)*i;
-  }
-  /*  if (h < 2.09439) {
-        cos_h = cos(h);
-        cos_1047_h = cos(1.047196667 - h);
-        r = s * LED_RGB_SCALE * i / 3 * (1 + s * cos_h / cos_1047_h);
-        g = s * LED_RGB_SCALE * i / 3 * (1 + s * (1 - cos_h / cos_1047_h));
-        b = 0;
-    }
-    else if (h < 4.188787) {
-        h = h - 2.09439;
-        cos_h = cos(h);
-        cos_1047_h = cos(1.047196667 - h);
-        g = s * LED_RGB_SCALE * i  / 3 * (1 + s * cos_h / cos_1047_h);
-        b = s * LED_RGB_SCALE * i  / 3 * (1 + s * (1 - cos_h / cos_1047_h));
-        r = 0;
-    }
-    else {
-        h = h - 4.188787;
-        cos_h = cos(h);
-        cos_1047_h = cos(1.047196667 - h);
-        b = s * LED_RGB_SCALE * i  / 3 * (1 + s * cos_h / cos_1047_h);
-        r = s * LED_RGB_SCALE * i  / 3 * (1 + s * (1 - cos_h / cos_1047_h));
-        g = s * 0;
-    }
-    
-    w = LED_RGB_SCALE * i * (1 -s);
-    */
-    rgbw->red = (uint8_t) r;
-    rgbw->green = (uint8_t) g;
-    rgbw->blue = (uint8_t) b;
-    rgbw->white= (uint8_t) w;
-}
-
-//http://blog.saikoled.com/post/44677718712/how-to-convert-from-hsi-to-rgb-white
-/*
-static void hsi2rgbw(float h, float s, float i, ws2812_pixel_t* rgb) {
+ void hsi2rgb(float H, float S, float I, ws2812_pixel_t* rgb) {
   int r, g, b;
-
-  while (h < 0) { h += 360.0F; };     // cycle h around to 0-360 degrees
-  while (h >= 360) { h -= 360.0F; };
-  h = 3.14159F*h / 180.0F;            // convert to radians.
-  s /= 100.0F;                        // from percentage to ratio
-  i /= 100.0F;                        // from percentage to ratio
-  s = s > 0 ? (s < 1 ? s : 1) : 0;    // clamp s and i to interval [0,1]
-  i = i > 0 ? (i < 1 ? i : 1) : 0;    // clamp s and i to interval [0,1]
-  i = i * sqrt(i);                    // shape intensity to have finer granularity near 0
-
-  if (h < 2.09439) {
-    r = LED_RGB_SCALE * i / 3 * (1 + s * cos(h) / cos(1.047196667 - h));
-    g = LED_RGB_SCALE * i / 3 * (1 + s * (1 - cos(h) / cos(1.047196667 - h)));
-    b = LED_RGB_SCALE * i / 3 * (1 - s);
+  H = fmod(H,360);  // cycle H around to 0-360 
+ // while (H < 0) { H += 360.0F; };     // cycle h around to 0-360 degrees
+ // while (H >= 360) { H -= 360.0F; };
+  
+  H = 3.14159*H/(float)180; // Convert to radians.
+  S /= 100.0F;                        // from percentage to ratio
+  I /= 100.0F;                        // from percentage to ratio
+  S = S>0?(S<1?S:1):0; // clamp S and I to interval [0,1]
+  I = I>0?(I<1?I:1):0;
+  I = I * sqrt(I);                    // shape intensity to have finer granularity near 0
+  // Math! Thanks in part to Kyle Miller.
+  if(H < 2.09439) {
+    r = 255*I/3*(1+S*cos(H)/cos(1.047196667-H));
+    g = 255*I/3*(1+S*(1-cos(H)/cos(1.047196667-H)));
+    b = 255*I/3*(1-S);
+  } else if(H < 4.188787) {
+    H = H - 2.09439;
+    g = 255*I/3*(1+S*cos(H)/cos(1.047196667-H));
+    b = 255*I/3*(1+S*(1-cos(H)/cos(1.047196667-H)));
+    r = 255*I/3*(1-S);
+  } else {
+    H = H - 4.188787;
+    b = 255*I/3*(1+S*cos(H)/cos(1.047196667-H));
+    r = 255*I/3*(1+S*(1-cos(H)/cos(1.047196667-H)));
+    g = 255*I/3*(1-S);
   }
-  else if (h < 4.188787) {
-    h = h - 2.09439;
-    g = LED_RGB_SCALE * i / 3 * (1 + s * cos(h) / cos(1.047196667 - h));
-    b = LED_RGB_SCALE * i / 3 * (1 + s * (1 - cos(h) / cos(1.047196667 - h)));
-    r = LED_RGB_SCALE * i / 3 * (1 - s);
-  }
-  else {
-    h = h - 4.188787;
-    b = LED_RGB_SCALE * i / 3 * (1 + s * cos(h) / cos(1.047196667 - h));
-    r = LED_RGB_SCALE * i / 3 * (1 + s * (1 - cos(h) / cos(1.047196667 - h)));
-    g = LED_RGB_SCALE * i / 3 * (1 - s);
-  }
-
-  rgb->red = (uint8_t) r;
-  rgb->green = (uint8_t) g;
-  rgb->blue = (uint8_t) b;
-  rgb->white = (uint8_t) 0;           // white channel is not used
+  
+    rgb->red = (uint8_t) r;
+    rgb->green = (uint8_t) g;
+    rgb->blue = (uint8_t) b;
 }
-*/
+
 void led_string_fill(ws2812_pixel_t rgb) {
 
   // write out the new color to each pixel
@@ -222,10 +144,10 @@ void led_identify_task(void *_args) {
     for (int j = 0; j < 3; j++) {
       gpio_write(LED_INBUILT_GPIO, LED_ON);
       led_string_fill(COLOR_PINK);
-      vTaskDelay(200 / portTICK_PERIOD_MS);
+      vTaskDelay(500 / portTICK_PERIOD_MS);
       gpio_write(LED_INBUILT_GPIO, 1 - LED_ON);
       led_string_fill(COLOR_BLACK);
-      vTaskDelay(200 / portTICK_PERIOD_MS);
+      vTaskDelay(500 / portTICK_PERIOD_MS);
     }
     vTaskDelay(350 / portTICK_PERIOD_MS);
   }
@@ -251,22 +173,6 @@ void led_brightness_set(homekit_value_t value) {
   led_brightness = value.int_value;
  // led_string_set();
 }
-
-/*
-homekit_value_t led_hue_get() {
-  return HOMEKIT_FLOAT(led_hue);
-}
-
-void led_hue_set(homekit_value_t value) {
-  if (value.format != homekit_format_float) {
-    // printf("Invalid hue-value format: %d\n", value.format);
-    return;
-  }
-  led_hue = value.float_value;
-  printf("hue-value format: %f\n", led_hue);
- // led_string_set();
-}
-*/
 
 homekit_value_t led_saturation_get() {
   return HOMEKIT_FLOAT(led_saturation);
@@ -313,7 +219,7 @@ void reset_configuration() {
 
 
 
-homekit_characteristic_t lightbulb_on = HOMEKIT_CHARACTERISTIC_(ON, false, .callback=HOMEKIT_CHARACTERISTIC_CALLBACK(switch_on_callback));
+homekit_characteristic_t lightbulb_on = HOMEKIT_CHARACTERISTIC_(ON, true, .callback=HOMEKIT_CHARACTERISTIC_CALLBACK(switch_on_callback));
 
 
 void switch_on_callback(homekit_characteristic_t *_ch, homekit_value_t on, void *context) {
@@ -346,7 +252,7 @@ void led_strip_set(int delay, float hue){
 
 	 if (power_on) {
     // convert HSI to RGBW
-    hsi2rgbw(hue, led_saturation, led_brightness, &rgb);
+    hsi2rgb(hue, led_saturation, led_brightness, &rgb);
   // printf("h=%d,s=%d,b=%d => ", (int)led_hue, (int)led_saturation, (int)led_brightness);
   // printf("r=%d,g=%d,b=%d,w=%d\n", rgb.red, rgb.green, rgb.blue, rgb.white);
 	     	target_color.red = rgb.red;
@@ -539,7 +445,7 @@ homekit_accessory_t *accessories[] = {
       &man,
       HOMEKIT_CHARACTERISTIC(SERIAL_NUMBER, "037A2BABF19D"),
       HOMEKIT_CHARACTERISTIC(MODEL, "WS2812_i2s"),
-      HOMEKIT_CHARACTERISTIC(FIRMWARE_REVISION, "0.2.6"),
+      HOMEKIT_CHARACTERISTIC(FIRMWARE_REVISION, "0.3.6"),
       HOMEKIT_CHARACTERISTIC(IDENTIFY, led_identify),
       NULL
     }),
@@ -592,7 +498,7 @@ void user_init(void) {
   wifi_config_init2("WS2812_i2s Strip", NULL, on_wifi_ready);
   led_init();
 	    xTaskCreate(led_strip_task, "led string task", 512, NULL, 2, NULL);
-	    xColorTimer = xTimerCreate("Color Timer",(5000/portTICK_PERIOD_MS),pdTRUE,0, timer_color_loop);
+	    xColorTimer = xTimerCreate("Color Timer",(7000/portTICK_PERIOD_MS),pdTRUE,0, timer_color_loop);
 
   gpio_enable(button_gpio, GPIO_INPUT);
   if (button_create(button_gpio, 0, 10000, button_callback)) {
